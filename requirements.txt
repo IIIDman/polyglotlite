@@ -2,6 +2,7 @@
 torch>=2.0.0
 numpy>=1.21.0
 tqdm>=4.64.0
+transformers>=4.36.0
 
 # Optional: for training
 # wandb>=0.15.0

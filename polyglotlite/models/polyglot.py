@@ -551,3 +551,78 @@ class PolyglotLite:
             f"  device={self.device}\n"
             f")"
         )
+
+class PolyglotLiteHF:
+    """
+    PolyglotLite using HuggingFace pretrained models as backend.
+    Use this for inference with real pretrained weights.
+    """
+    
+    PRETRAINED_MODELS = {
+        "polyglot-135m": "HuggingFaceTB/SmolLM-135M",
+        "polyglot-360m": "HuggingFaceTB/SmolLM-360M", 
+        "polyglot-500m": "Qwen/Qwen2-0.5B",
+    }
+    
+    def __init__(self, model_name: str = "polyglot-135m", device: str = "auto"):
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except ImportError:
+            raise ImportError("Install transformers: pip install transformers")
+        
+        hf_model_name = self.PRETRAINED_MODELS.get(model_name, model_name)
+        
+        # Auto device selection
+        if device == "auto":
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
+        
+        self.device = device
+        self.model_name = model_name
+        
+        print(f"Loading {hf_model_name}...")
+        self.tokenizer = AutoTokenizer.from_pretrained(hf_model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            hf_model_name,
+            torch_dtype=torch.float32,
+            device_map=None
+        ).to(device)
+        
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        print(f"Model loaded on {device}")
+    
+    def generate(
+        self,
+        prompt: str,
+        max_length: int = 100,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        top_k: int = 50,
+        do_sample: bool = True,
+        **kwargs
+    ) -> str:
+        """Generate text from prompt."""
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+        
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=max_length,
+                temperature=temperature if do_sample else 1.0,
+                top_p=top_p,
+                top_k=top_k,
+                do_sample=do_sample,
+                pad_token_id=self.tokenizer.pad_token_id,
+            )
+        
+        return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+    
+    def __repr__(self) -> str:
+        params = sum(p.numel() for p in self.model.parameters())
+        return f"PolyglotLiteHF(model={self.model_name}, parameters={params:,}, device={self.device})"

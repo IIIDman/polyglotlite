@@ -39,6 +39,22 @@ model = PolyglotLite(model_name="polyglot-135m")
 output = model.generate("Hello world", max_length=50)
 ```
 
+### Using Pretrained Models
+
+For actual text generation with real pretrained weights:
+```python
+from polyglotlite import PolyglotLiteHF
+
+# Load pretrained model (downloads automatically)
+model = PolyglotLiteHF("polyglot-135m")
+
+# Generate text
+output = model.generate("The future of AI is", max_length=50)
+print(output)
+```
+
+Requires: `pip install transformers`
+
 ### Training on Your Data
 
 ```python
